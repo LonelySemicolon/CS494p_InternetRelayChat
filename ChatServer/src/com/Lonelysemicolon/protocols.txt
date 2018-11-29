@@ -1,0 +1,24 @@
+User & Server
+
+1. User --> Server
+    *Login / logout
+    *Status commands
+
+2. Server --> User
+    *Online/offline messages
+
+3. User to User
+    *Direct messages
+    *Broadcast communications
+
+
+
+Commands:
+    Login <user> <password>
+    Logoff
+
+    msg <username> text...(250char)
+
+    ben: msgBody ben What up homie, call it a day!<--sent
+
+    jon: "msgBody guest What up homie, call it a day!"<--received
