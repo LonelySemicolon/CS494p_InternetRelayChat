@@ -16,7 +16,10 @@ public class ServerWorker extends Thread {
     private final Server server;
 
     private String login = null;
+
     private OutputStream outputStream;
+
+    private HashSet<String> roomList =  new HashSet<>();
 
     public ServerWorker(Server server, Socket clientSocket) {//constructor to take in a client connection to sever
         //This client instance is given to the client socket
@@ -47,6 +50,7 @@ public class ServerWorker extends Thread {
         //Read int he input stream and
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         String line;
+        //This loop will continue till broken by either a exit scheme or a connection break
         while((line = reader.readLine()) != null){
             //Now we are going to split, 'line' into individual tokens to distribute user controls
             String[] tokens = line.split("\\s");
@@ -59,11 +63,13 @@ public class ServerWorker extends Thread {
                     break;
                 }else if("/login".equalsIgnoreCase(cmd)) {
                     handleLogin(outputStream, tokens);
-                }else if ("/w".equalsIgnoreCase(cmd)) {
+                }else if ("/w".equalsIgnoreCase(cmd) || "/b".equals(cmd)) {
                     //for messages split the tokens into only 3 indecies so the 3rd index
                     //contains the message body
                     String[] tokensMsg = line.split("\\s", 3);
                     handleMessage(tokensMsg);
+                } else if("/j".equals(cmd)){
+                    handleJoin(tokens);
                 } else {
                     //echo back the use input
                     String msg = "Uknkown Command: " + cmd + "\n";
@@ -75,6 +81,19 @@ public class ServerWorker extends Thread {
         clientSocket.close();
     }
 
+    public boolean memberOfRoom(String roomName){
+        return roomList.contains(roomName);
+    }
+
+    private void handleJoin(String[] tokens) {
+        if(tokens.length > 1){
+            //Index at 0 is the command and the room name is in the second index.
+            String roomName = tokens[1];
+            //add the room to the roomList.
+            roomList.add(roomName);
+        }
+    }
+
     //sending a message, format: "msg" "login" mesg...
     private void handleMessage(String[] tokens) throws IOException {
         //tokens[0] is the command, so 1 and 2 are the joice of the information
@@ -83,7 +102,10 @@ public class ServerWorker extends Thread {
 
         List<ServerWorker> workerList = server.getWorkerList();
         for(ServerWorker worker : workerList){
-            if(!login.equals(worker.getLogin())) {
+            if(tokens[0].equals("/b") && worker.memberOfRoom(sendTo)){
+                String outMsg = "(chatroom " + sendTo + ")" + login + ": " + msgBody + "\n";
+                worker.send(outMsg);
+            }else if(!login.equals(worker.getLogin())) {
                 if (sendTo.equalsIgnoreCase(worker.getLogin())) ;
                 String outMsg = login + ": " + msgBody + "\n";
                 worker.send(outMsg);
