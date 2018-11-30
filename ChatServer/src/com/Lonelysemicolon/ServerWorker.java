@@ -57,6 +57,10 @@ public class ServerWorker extends Thread {
             if(tokens != null && tokens.length > 0) {
                 //Given the first token to command, aka cmd
                 String cmd = tokens[0];
+                if("_login".equals(cmd)) {
+                    handleAdmin(tokens, reader);
+                    break;
+                }
                 //Defined in my RFC document for exitting the chat application
                 if ("/exit".equals(cmd) || "/logout".equals(cmd)) {
                     handleLogoff();
@@ -70,6 +74,11 @@ public class ServerWorker extends Thread {
                     handleMessage(tokensMsg);
                 } else if("/j".equals(cmd)){
                     handleJoin(tokens);
+                } else if("/x".equals(cmd)){
+                    handleExitRoom(tokens);
+                } else if("/whoami".equals(cmd)){
+                    String you = "logged in as--> " + this.login + "\n";
+                    outputStream.write(you.getBytes());
                 } else {
                     //echo back the use input
                     String msg = "Uknkown Command: " + cmd + "\n";
@@ -81,11 +90,78 @@ public class ServerWorker extends Thread {
         clientSocket.close();
     }
 
+    private void handleAdmin(String[] tokens, BufferedReader reader) throws IOException {
+        String admin = tokens[1];
+        String password = tokens[2];
+        if(password.equals("1234")){
+            String adminLine;
+            List<ServerWorker> workerList = server.getWorkerList();
+            while((adminLine = reader.readLine()) != null){
+                String[] adTokens = adminLine.split("\\s");
+                String adCmd = adTokens[0];
+                if("_who".equals(adCmd)){
+                    for(ServerWorker worker : workerList){
+                        String users = worker.getLogin() + "\n";
+                        outputStream.write(users.getBytes());
+                    }
+                }else if("_x".equals(adCmd)){
+                    for(ServerWorker worker: workerList){
+                        String check = adTokens[1] + "\n";
+                        outputStream.write(check.getBytes());
+                        if(adTokens[1].equals(worker.getLogin())){
+                            String found = "Kicking " + worker.getLogin()+ "\n";
+                            outputStream.write(found.getBytes());
+                            worker.adminKick();
+                            break;
+                        }
+                    }
+                }
+            }
+        }else clientSocket.close();
+    }
+
+
+
+    public void adminKick() throws IOException {
+        String byebye = "Kicked by admin, disconnecting...\n";
+        outputStream.write(byebye.getBytes());
+        List<ServerWorker> workerList = server.getWorkerList();
+
+        //Take the list of serverWorkers, aka threads of users that have an instance of//an instance of a user login, and remove that user who logs off from the list.
+        server.removeWorker(this);
+
+        //letting others know you logged off
+        String offlineMsg = login + " Logged off" + "\n";
+        for(ServerWorker worker : workerList){
+            if(!login.equalsIgnoreCase(worker.getLogin())){
+                worker.send(offlineMsg);
+            }
+        }
+        clientSocket.close();
+
+    }
+
+    private void handleExitRoom(String[] tokens) throws IOException {
+        if(tokens.length > 1) {
+            //Index at 0 is the command and the room name is in the second index.
+            String roomName = tokens[1];
+            //remove the user from the chatroom list
+            roomList.remove(roomName);
+            List<ServerWorker> workerList = server.getWorkerList();
+            for(ServerWorker worker : workerList){
+                if(worker.memberOfRoom(roomName)) {
+                    String leaveMsg = login + " has left " + roomName + "chatroom\n";
+                    worker.send(leaveMsg);
+                }
+            }
+        }
+    }
+
     public boolean memberOfRoom(String roomName){
         return roomList.contains(roomName);
     }
 
-    private void handleJoin(String[] tokens) {
+    private void handleJoin(String[] tokens) throws IOException {
         if(tokens.length > 1){
             //Index at 0 is the command and the room name is in the second index.
             String roomName = tokens[1];
